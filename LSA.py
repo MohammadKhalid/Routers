@@ -6,10 +6,11 @@ import socket
 from copy import deepcopy
 import json
 import time
+import decimal
 neighbours = {}
 seq = 0
 currentSeq=0
-
+timestamps={}
 graph = {}
 
 class bootstrap: 
@@ -52,7 +53,7 @@ def receiveLinkState():
     server.bind(server_address)
     currentSeq={}
     while True:
-        print('\nwaiting to receive message')
+        # print('\nwaiting to receive message')
         data, address = server.recvfrom(4096)
         data = data.decode('utf-8')
         data = json.loads(data)
@@ -68,6 +69,7 @@ def receiveLinkState():
             print(receivedFrom,origin,data['seq'])
             data['sender']=sys.argv[1]
             graph[origin] = data['neighbours']
+            timestamps[origin] = time.time()
             data = json.dumps(data)
             data = data.encode('utf-8')
             for neighbour in neighbours.keys():
@@ -77,28 +79,36 @@ def receiveLinkState():
 #ending function
 
 def Dijkstra():
-    time.sleep(10)
+    time.sleep(15)
+    
     currentNeighbours={}
     stack = []
     bestCost = {sys.argv[1]:{'cost':0,'path':sys.argv[1]}}
     stack.append(sys.argv[1])
-
+    tree = deepcopy(graph)
+    times = deepcopy(timestamps)
+    currentTime = time.time()
+    for i in times:
+        if (currentTime - times[i])>5:
+            del tree[i]
     while len(stack)>0:
         currentNode = stack[-1]
         stack.pop()
-        currentNeighbours = graph[currentNode]
+        currentNeighbours = tree[currentNode]
         for key,value in currentNeighbours.items():
             if key not in bestCost:
                 bestCost[key]={}
                 bestCost[key]['cost'] = 999999
                 bestCost[key]['path'] = ""
-            if key in graph and bestCost[key]['cost']>bestCost[currentNode]['cost']+value['cost']:
+            if key in tree and bestCost[key]['cost']>bestCost[currentNode]['cost']+value['cost']:
                 bestCost[key]['cost'] = bestCost[currentNode]['cost']+value['cost']
                 bestCost[key]['path'] = bestCost[currentNode]['path']+key
                 stack.append(key)
-                print(key)
-
-    print(bestCost)
+                # print(key)
+    print("I am router "+sys.argv[1])
+    for key,value in bestCost.items():
+        if value['cost']<999999 and value['cost']>0:
+            print("Least cost path to router "+key+": "+value['path']+" and the Cost: "+str(round(value['cost'],2)))
 
 
 def initiator():
@@ -114,7 +124,7 @@ def initiator():
             UDP_PORT = neighbour['port']
             sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
             sock.sendto(MESSAGE, (UDP_IP, UDP_PORT))
-        time.sleep(5)
+        time.sleep(2)
         #print(graph)
         
 #ending function
